@@ -1,9 +1,17 @@
 <?php
 
-namespace HM\Cavalcade\Plugin;
+namespace HM\Cavalcade\Plugin\Connector;
 
-add_filter( 'pre_update_option_cron', __NAMESPACE__ . '\\update_cron_array', 10, 2 );
-add_filter( 'pre_option_cron',        __NAMESPACE__ . '\\get_cron_array' );
+use HM\Cavalcade\Plugin as Cavalcade;
+use HM\Cavalcade\Plugin\Job;
+
+/**
+ * Register hooks for WordPress.
+ */
+function bootstrap() {
+	add_filter( 'pre_update_option_cron', __NAMESPACE__ . '\\update_cron_array', 10, 2 );
+	add_filter( 'pre_option_cron',        __NAMESPACE__ . '\\get_cron_array' );
+}
 
 /**
  * Schedule an event with Cavalcade
@@ -71,7 +79,7 @@ function update_cron_array( $value, $old_value ) {
 
 	// Massage so we can compare
 	$massager = function ( $crons ) {
-		$new = array();
+		$new = [];
 
 		foreach ( $crons as $timestamp => $hooks ) {
 			foreach ( $hooks as $hook => $groups ) {
@@ -83,12 +91,12 @@ function update_cron_array( $value, $old_value ) {
 					}
 
 					$real_key = sha1( $timestamp . $hook . $key );
-					$new[ $real_key ] = array(
+					$new[ $real_key ] = [
 						'timestamp' => $timestamp,
 						'hook' => $hook,
 						'key' => $key,
-						'value' => $item
-					);
+						'value' => $item,
+					];
 				}
 			}
 		}
@@ -109,11 +117,11 @@ function update_cron_array( $value, $old_value ) {
 		}
 
 		// Added new event
-		$event = (object) array(
+		$event = (object) [
 			'hook'      => $item['hook'],
 			'timestamp' => $item['timestamp'],
 			'args'      => $item['value']['args'],
-		);
+		];
 		if ( ! empty( $item['value']['schedule'] ) ) {
 			$event->schedule = $item['value']['schedule'];
 			$event->interval = $item['value']['interval'];
@@ -160,17 +168,17 @@ function get_cron_array( $value ) {
 	}
 
 	// Massage into the correct format
-	$crons = array();
-	$results = get_jobs();
+	$crons = [];
+	$results = Cavalcade\get_jobs();
 	foreach ( $results as $result ) {
 		$timestamp = $result->nextrun;
 		$hook = $result->hook;
 		$key = md5( serialize( $result->args ) );
-		$value = array(
+		$value = [
 			'schedule' => '__fake_schedule',
 			'args'     => $result->args,
 			'_job'     => $result,
-		);
+		];
 
 		if ( isset( $result->interval ) ) {
 			$value['interval'] = $result->interval;
@@ -178,10 +186,10 @@ function get_cron_array( $value ) {
 
 		// Build the array up, urgh
 		if ( ! isset( $crons[ $timestamp ] ) ) {
-			$crons[ $timestamp ] = array();
+			$crons[ $timestamp ] = [];
 		}
 		if ( ! isset( $crons[ $timestamp ][ $hook ] ) ) {
-			$crons[ $timestamp ][ $hook ] = array();
+			$crons[ $timestamp ][ $hook ] = [];
 		}
 		$crons[ $timestamp ][ $hook ][ $key ] = $value;
 	}
